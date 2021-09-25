@@ -22,14 +22,14 @@ options(scipen=999) #remove scientific notation
 # But I will keep the flattest and tallest, ie. upper and lower limit, the same. 
 # Only the inside range between those limits are diversified.
 
-upperLimit = -0.602314116
-upperLimit = 0.602314116
-lastlogARValue = -0.602314116
+upperLimit = -1.01930048 #-0.602314116
+upperLimit = 1.01930048
+lastlogARValue = -1.01930048
 
 changeConst = 0.04633181818/2 # here I populate two times more than the original set size. 
 
-logARList_wider = c(-0.602314116)
-while (lastlogARValue <= 0.602314116){
+logARList_wider = c(-1.01930048)
+while (lastlogARValue <= 1.01930048){
   logAR = lastlogARValue + changeConst
   logARList_wider = append(logARList_wider, logAR)
   lastlogARValue = logAR
@@ -139,7 +139,52 @@ finalARList = data.frame(finalHeight, finalWidth)
 finalARList$AR <- finalARList$finalHeight/ finalARList$finalWidth
 finalARList$logAR <- log(finalARList$AR,10)
 
+possibleLogDifferences <- outer(finalARList$logAR,finalARList$logAR, '-')
+which(possibleLogDifferences == possibleLogDifferences[4,3], arr.ind=TRUE) # find the column and row of a given value
+array(possibleLogDifferences)
+max(unique(array(possibleLogDifferences)))
+#### 6.a test of random samlping bias in rendering non-uniform distribution ####
+
+firstLog <- sample(finalARList$logAR, 1000, replace = TRUE) # pick the first shape log
+secondLog <- sample(finalARList$logAR, 1000, replace = TRUE) # pick the second shape log
+
+shapeDiff <- firstLog - secondLog
+hist(shapeDiff, freq = FALSE, xlab = 'x', density = 20)
 
 
 
+
+#### 7- creating bins of AR differences ####
+
+#create a new matrix to work on this 7)
+ARList_rounded <-data.frame(height=1:length(finalARList$finalHeight),width=NA, AR= NA, logAR= NA)
+# rounding AR values
+ARList_rounded$height <- round(finalARList$finalHeight, digits = 2)
+ARList_rounded$width <- round(finalARList$finalWidth, digits = 2)
+ARList_rounded$AR <- round(finalARList$AR, digits = 2)
+ARList_rounded$logAR <- round(finalARList$logAR, digits = 2)
+
+# throw random shapes and calculate their AR values (by looking into the dictionary),
+# then calculate the AR difference between them, then group by AR difference.
+randomAR_1 <- sample(ARList_rounded$logAR, 100, replace = TRUE)
+randomAR_2 <- sample(ARList_rounded$logAR, 100, replace = TRUE)
+
+#randomly selects item from a list, select 400 random AR, then pair them. 
+shapeDetailList <-data.frame(Log1=1:400000,Log2=NA, LogDiff= NA)
+
+for (i in 1:400000){
+  randomAR_1 <- sample(ARList_rounded$logAR, 1)
+  randomAR_2 <- sample(ARList_rounded$logAR, 1)
+  shapeDetailList$Log1[i] <- randomAR_1
+  shapeDetailList$Log2[i] <- randomAR_2
+  shapeDetailList$LogDiff[i] <- abs(randomAR_1- randomAR_2)
+}
+shapeDetailList <- shapeDetailList[order(shapeDetailList$LogDiff),]
+
+# shapeList_1 <- c(shapeList_1, randomAR) ## appending item to a list
+
+#> max(diffOfList)
+#[1] 1.204627
+#> min(diffOfList)
+#[1] -1.181461
 
