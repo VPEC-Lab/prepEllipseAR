@@ -29,11 +29,11 @@ upperLimit = -0.602314116 #-0.602314116 #1.01930048
 upperLimit = 0.602314116 #1.01930048
 lastlogARValue = -0.602314116 #1.01930048
 
-changeConst = 0.04633181818/2 # here I populate two times more than the original set size. 
+changeConst = 0.04633181818 # here I populate two times more than the original set size. 
 
 logARList_wider = c(-0.602314116)
 while (lastlogARValue <= 0.602314116){
-  logAR = lastlogARValue + changeConst
+  logAR = lastlogARValue + changeConst/2
   logARList_wider = append(logARList_wider, logAR)
   lastlogARValue = logAR
 }
@@ -60,7 +60,7 @@ rowN_ofAR1 <- match(AR1, ARs)
 
 for (i in 2:rowN_ofAR1){ # loop starts from 2 because I start with a element already in the list c(lastHeight)
   print(i)
-  height = lastHeight + 0.15/2 # here I divide this number into two because I want the values to be less spread. 0.15 was used in the original excel sheet.
+  height = lastHeight + 0.15 # here I divide this number into two because I want the values to be less spread. 0.15 was used in the original excel sheet.
   heightList = append(heightList, height)
   lastHeight = height
   print(heightList[i])
@@ -83,7 +83,7 @@ lastWidth = tail(widthList, 1)
 
 #increment on the last item by 0.15 to create the rest of the width values
 for (i in (rowN_ofAR1+1):length(ARs)){ # rowN_ofAR1 + 1 because I start after the AR of 1
-  width = lastWidth - 0.15/2 # 0.15/2
+  width = lastWidth - 0.15 # 0.15/2
   widthList = append(widthList, width)
   lastWidth = width
   
@@ -142,64 +142,82 @@ finalARList = data.frame(finalHeight, finalWidth)
 finalARList$AR <- finalARList$finalHeight/ finalARList$finalWidth
 finalARList$logAR <- log(finalARList$AR,10)
 
-possibleLogDifferences <- data.frame(outer(finalARList$logAR,finalARList$logAR, '-'))
+diffMatrix <- data.frame(outer(finalARList$logAR,finalARList$logAR, '-'))
 
-#dt1[dt2, on = names(dt1)[names(dt1) %in% names(dt2)]]
-# change column names
-colnames(possibleLogDifferences)
 
+#colnames(possibleLogDifferences) change the column and row names
+library(stats)
 nms <- as.character(finalARList$logAR)
-setnames(possibleLogDifferences, nms)
-rownames(possibleLogDifferences) <- nms
+rownames(diffMatrix) <- nms
+names(diffMatrix) <- nms
+diffMatrix
 
-ARDiffList <- write.xlsx(possibleLogDifferences, "possibleLogDifferences.xlsx")
-which(possibleLogDifferences == possibleLogDifferences[4,3], arr.ind=TRUE) # find the column and row of a given value
-array(possibleLogDifferences)
-sort(unique(array(possibleLogDifferences))) ## full range of possible AR difference from neg to pos
-write.xlsx(sort(unique(array(possibleLogDifferences))), "fullARPossibleRange.xlsx")
-max(unique(array(possibleLogDifferences)))
-#### 6.a test of random samlping bias in rendering non-uniform distribution ####
+#get the full range of AR difference possibilities
 
-firstLog <- sample(finalARList$logAR, 1000, replace = TRUE) # pick the first shape log
-secondLog <- sample(finalARList$logAR, 1000, replace = TRUE) # pick the second shape log
+vectorized <- unlist(diffMatrix)
+diffRange <- sort(unique(vectorized)) # 237 UNIQUE FOR THE original list; 833 unique difference types. 
+range(vectorized) #-1.20 to 1.20 range of different values
 
-shapeDiff <- firstLog - secondLog
-hist(shapeDiff, freq = FALSE, xlab = 'x', density = 20)
+#### 7- meaty part ####
+# now I will calculate a list of 767 different AR difference
+
+##addressOfDiffValues <- data.frame(which(diffMatrix == diffRange[2], arr.ind=TRUE)) ## here I get the address of the matrix where this value sits. 
 
 
+listOfAllCombinations <- list() #that the difference 
 
+for (i in 1:length(diffRange)){
+  #get the row and col addresses, go by row
+  # get the first row (first difference value), get the rowand column index of that in the main address sheet
+  ##rowAddress <- addressOfDiffValues[i,1] #get the row address (first column in the main address sheet)
+  ##colAddress <- addressOfDiffValues[i,2] #get the column address
+  #print(names(addressOfValue[rowAddress)
+  addressOfDiffValues <- which(diffMatrix == diffRange[i], arr.ind=TRUE)
+  diffRowNames <- as.numeric(row.names(diffMatrix[addressOfDiffValues[,1],] )) # get the row names 
+  diffColNames <- as.numeric(names(diffMatrix[addressOfDiffValues[,2]])) # get the column names
+  oneList <- list(diffRowNames,diffColNames) #bind the row and col names vectors
 
-#### 7- creating bins of AR differences ####
-
-#create a new matrix to work on this 7)
-ARList_rounded <-data.frame(height=1:length(finalARList$finalHeight),width=NA, AR= NA, logAR= NA)
-# rounding AR values
-ARList_rounded$height <- round(finalARList$finalHeight, digits = 2)
-ARList_rounded$width <- round(finalARList$finalWidth, digits = 2)
-ARList_rounded$AR <- round(finalARList$AR, digits = 2)
-ARList_rounded$logAR <- round(finalARList$logAR, digits = 2)
-
-# throw random shapes and calculate their AR values (by looking into the dictionary),
-# then calculate the AR difference between them, then group by AR difference.
-randomAR_1 <- sample(ARList_rounded$logAR, 100, replace = TRUE)
-randomAR_2 <- sample(ARList_rounded$logAR, 100, replace = TRUE)
-
-#randomly selects item from a list, select 400 random AR, then pair them. 
-shapeDetailList <-data.frame(Log1=1:400000,Log2=NA, LogDiff= NA)
-
-for (i in 1:400000){
-  randomAR_1 <- sample(ARList_rounded$logAR, 1)
-  randomAR_2 <- sample(ARList_rounded$logAR, 1)
-  shapeDetailList$Log1[i] <- randomAR_1
-  shapeDetailList$Log2[i] <- randomAR_2
-  shapeDetailList$LogDiff[i] <- abs(randomAR_1- randomAR_2)
+  name <- paste('item:',diffRange[i],sep='')
+  listOfAllCombinations[[name]] <- oneList
 }
-shapeDetailList <- shapeDetailList[order(shapeDetailList$LogDiff),]
 
-# shapeList_1 <- c(shapeList_1, randomAR) ## appending item to a list
 
-#> max(diffOfList)
-#[1] 1.204627
-#> min(diffOfList)
-#[1] -1.181461
+
+listOfSingleFrame <- list()
+singleFrame <- NULL
+### create new lists with row and column as the nested variable ###
+for (i in 1:length(listOfAllCombinations)){
+  for (a in 1:length(listOfAllCombinations[[i]][[1]])){#extract the list and go through each row in a list
+    print(a)
+    firstAR <- unlist(listOfAllCombinations[[i]][1])[a] #get the row, 1st AR
+
+    secondAR<- unlist(listOfAllCombinations[[i]][2])[a] #get the col, 2st AR
+    logPair <- array(c(firstAR,secondAR)) #    c <- data.frame(a,b)
+    logPairSingMatrix <- matrix(list(logPair),1) #1 is for 1 row
+    print(logPairSingMatrix)
+
+    #push that array to the end of the matrix
+    singleFrame=rbind(singleFrame,logPairSingMatrix)
+    print(singleFrame)
+  } 
+  ##listOfSingleFrame$i <- i
+  ##listOfSingleFrame[[i]] <- singleFrame
+  ##z <- array( c( x , y ) , dim = c( 3 , 3 , 2 ) )
+   
+  name <- paste('diff',firstAR-secondAR,sep='')
+  listOfSingleFrame[[name]] <- singleFrame
+  singleFrame<- NULL
+  
+}
+
+##test <- data.table(listOfAllCombinations)
+##listOfAllCombinations[[1]]
+
+#import the list to json
+library(rjson)
+listOfListJSON <- toJSON(listOfSingleFrame, indent=0, method="C" )
+listOfListJSON
+#write json
+write(listOfListJSON, "test.json")
+
 
