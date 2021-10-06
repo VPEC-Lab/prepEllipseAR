@@ -142,8 +142,7 @@ finalARList = data.frame(finalHeight, finalWidth)
 finalARList$AR <- finalARList$finalHeight/ finalARList$finalWidth
 finalARList$logAR <- log(finalARList$AR,10)
 
-diffMatrix <- data.frame(outer(finalARList$logAR,finalARList$logAR, '-'))
-
+diffMatrix <- data.frame(signif(outer(finalARList$logAR,finalARList$logAR, '-'), digits = 5))
 
 #colnames(possibleLogDifferences) change the column and row names
 library(stats)
@@ -181,34 +180,70 @@ for (i in 1:length(diffRange)){
   listOfAllCombinations[[name]] <- oneList
 }
 
-
-
 listOfSingleFrame <- list()
 singleFrame <- NULL
 ### create new lists with row and column as the nested variable ###
 for (i in 1:length(listOfAllCombinations)){
   for (a in 1:length(listOfAllCombinations[[i]][[1]])){#extract the list and go through each row in a list
-    print(a)
+    #print(a)
     firstAR <- unlist(listOfAllCombinations[[i]][1])[a] #get the row, 1st AR
-
     secondAR<- unlist(listOfAllCombinations[[i]][2])[a] #get the col, 2st AR
-    logPair <- array(c(firstAR,secondAR)) #    c <- data.frame(a,b)
-    logPairSingMatrix <- matrix(list(logPair),1) #1 is for 1 row
-    print(logPairSingMatrix)
+    
+    #add height and width values of that AR to the logPairSingMatrix
+    #get the log and find the associated height and width combo from the finalARList
+    rowNfirstAR <-  which(signif(finalARList$logAR) == signif(firstAR))  #get the row number of that logAR
+    rowNsecondAR <- which(signif(finalARList$logAR) == signif(secondAR)) #signif is used for rounding to 6 digits, otherwise some numbers are not equal
+    # get the height and width of that row number
+    firstAR_height <- finalARList$finalHeight[rowNfirstAR]
+    firstAR_width <- finalARList$finalWidth[rowNfirstAR] 
+    AR_pair1 <- array(c(firstAR_height,firstAR_width))
+    secondAR_height <- finalARList$finalHeight[rowNsecondAR]
+    secondAR_width <- finalARList$finalWidth[rowNsecondAR] 
+    AR_pair2 <- array(c(secondAR_height,secondAR_width))
+    shapePairHW <- matrix(list(AR_pair1,AR_pair2),1)
+    
+    #firstAR_HW <- matrix(list(firstAR, AR_pair1), ncol = 2)
+    #secondAR_HW <- matrix(list(secondAR, AR_pair2), ncol = 2)
+    #firstAR_HW <- list(list(firstAR, AR_pair1))
+    #secondAR_HW <- list(list(secondAR, AR_pair2))
+    #singleMatrix <- matrix(list(list(firstAR, AR_pair1),list(secondAR, AR_pair2)), 1)
 
+    
+
+    #logPairSingMatrix <- matrix(list(logPair1,logPair2),1) #1 is for 1 row
+    #logPairSingMatrix <- array(c(logPair1,logPair2))
+    #print(logPairSingMatrix)
+    
     #push that array to the end of the matrix
-    singleFrame=rbind(singleFrame,logPairSingMatrix)
-    print(singleFrame)
+    #bindARandHW <- cbind(logPairSingMatrix,shapePairHW)
+    #singleFrame = rbind(singleFrame,bindARandHW )
+    #print(singleFrame)
+    #pair1And2 <-  cbind(firstAR_HW,secondAR_HW)
+    
+    ARPair <- array(c(firstAR_height,firstAR_width, secondAR_height, secondAR_width))
+    
+    # working routine below #
+    logPair <- array(c(firstAR,secondAR)) #    c <- data.frame(a,b)
+    logPairSingMatrix <- matrix(list(logPair,ARPair ),1) #1 is for 1 row
+    #print(logPairSingMatrix)
+    singleFrame <- rbind(singleFrame,logPairSingMatrix)
   } 
   ##listOfSingleFrame$i <- i
   ##listOfSingleFrame[[i]] <- singleFrame
   ##z <- array( c( x , y ) , dim = c( 3 , 3 , 2 ) )
    
-  name <- paste('diff',firstAR-secondAR,sep='')
+  name <- paste('',firstAR-secondAR,sep='')
   listOfSingleFrame[[name]] <- singleFrame
   singleFrame<- NULL
   
 }
+
+#sample e1AR from the big list
+sampleE1E2Test <- sample(listOfSingleFrame$`0.0231659090899999`[,1], 1000,replace = TRUE)
+sampleE1E2Test_1 <- sample(sampleE1E2Test, 1,replace = TRUE)
+hist(sampleE1E2Test,freq = FALSE, xlab = 'x', density = 20) #it is uniform (almost, with more sample size, more uniform)
+
+#listOfSingleTestFrame$`0`[1,3] to see the other columns
 
 ##test <- data.table(listOfAllCombinations)
 ##listOfAllCombinations[[1]]
@@ -218,6 +253,11 @@ library(rjson)
 listOfListJSON <- toJSON(listOfSingleFrame, indent=0, method="C" )
 listOfListJSON
 #write json
-write(listOfListJSON, "test.json")
+write(listOfListJSON, "stimuliList.json")
+
+### last checks for uniform dist ###
+sampledDiff <- sample(listOfSingleFrame, 10000,replace = TRUE)
+resultsSampleDiff <- as.numeric(names(sampledDiff))
+hist(resultsSampleDiff,freq = FALSE, xlab = 'x', density = 20) #it is uniform (almost, with more sample size, more uniform)
 
 
